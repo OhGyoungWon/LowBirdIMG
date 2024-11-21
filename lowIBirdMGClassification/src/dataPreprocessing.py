@@ -1,3 +1,7 @@
+"""
+이미지 데이터셋 전처리 코드
+"""
+
 import os
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader

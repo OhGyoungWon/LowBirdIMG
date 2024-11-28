@@ -6,6 +6,10 @@ import os
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
+import h5py
+import numpy as np
+from tqdm import tqdm  # 진행 상황 표시
+
 
 
 class BirdDataset(Dataset):
@@ -18,8 +22,8 @@ class BirdDataset(Dataset):
             transform (callable, optional): RGB 이미지에 적용할 전처리.
             shape_transform (callable, optional): 형상 이미지에 적용할 전처리.
         """
-        self.image_dir = images
-        self.shape_dir = shapes
+        self.image_dir = image_dir
+        self.shape_dir = shape_dir
         self.transform = transform
         self.shape_transform = shape_transform
 
@@ -79,14 +83,42 @@ shape_transform = transforms.Compose([
 
 # 데이터셋 초기화
 train_dataset = BirdDataset(
-    image_dir="dataset/images",
-    shape_dir="dataset/shapes",
+    image_dir="lowIBirdMGClassification/resource/images",
+    shape_dir="lowIBirdMGClassification/resource/shapes",
     transform=image_transform,
     shape_transform=shape_transform
 )
 
 # DataLoader로 배치 단위로 묶기
 train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True)
+
+# HDF5 파일 경로 설정
+hdf5_file_path = "lowIBirdMGClassification/resource/preprocessed/bird_dataset.h5"
+
+# HDF5 파일 생성
+with h5py.File(hdf5_file_path, "w") as hdf5_file:
+    # 데이터셋 크기 계산
+    total_samples = len(train_dataset)
+    
+    # HDF5 데이터셋 생성 (배열 크기 사전 정의)
+    images_dataset = hdf5_file.create_dataset(
+        "images", (total_samples, 224, 224, 3), dtype=np.float32
+    )
+    shapes_dataset = hdf5_file.create_dataset(
+        "shapes", (total_samples, 224, 224, 1), dtype=np.float32
+    )
+    labels_dataset = hdf5_file.create_dataset(
+        "labels", (total_samples,), dtype=np.integer
+    )
+    
+    # 데이터 저장
+    idx = 0
+    for images, shapes, labels in tqdm(train_loader, desc="Saving to HDF5"):
+        batch_size = images.size(0)
+        images_dataset[idx:idx + batch_size] = images.permute(0, 2, 3, 1).numpy()  # [C, H, W] → [H, W, C]
+        shapes_dataset[idx:idx + batch_size] = shapes.permute(0, 2, 3, 1).numpy()  # [C, H, W] → [H, W, C]
+        labels_dataset[idx:idx + batch_size] = labels.numpy()
+        idx += batch_size
 
 # 데이터 확인
 for images, shapes, labels in train_loader:

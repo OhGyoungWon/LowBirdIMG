@@ -105,8 +105,36 @@ def validate_model(model, val_loader):
     accuracy = 100 * correct / total
     print(f'Validation Accuracy: {accuracy:.2f}%')
 
+
+def save_model(model, path):
+    """
+    학습된 모델 가중치를 저장합니다.
+    """
+    torch.save(model.state_dict(), path)
+    print(f"Model saved to {path}")
+
+def load_model(model, path):
+    """
+    저장된 가중치를 로드하여 모델을 초기화합니다.
+    """
+    model.load_state_dict(torch.load(path, map_location=torch.device("cpu")))
+    model.eval()  # 평가 모드로 설정
+    print(f"Model loaded from {path}")
+    return model
+
 # 모델 학습 시작
 train_model(model, train_loader, val_loader, epochs=10)
+
+# 학습된 모델 저장 경로
+model_save_path = "lowIBirdMGClassification/saveModel/bird_classifier.pth"
+
+# 모델 학습 후 저장
+train_model(model, train_loader, val_loader, epochs=10)
+save_model(model, model_save_path)
+
+# 저장된 모델 로드
+loaded_model = build_classification_model(num_classes).to(device)  # 모델 초기화
+loaded_model = load_model(loaded_model, model_save_path)
 
 
 import torch.nn.functional as F
@@ -150,7 +178,8 @@ def predict_bird_species(lr_image_path, model, class_names):
     저해상도 이미지를 입력받아 가장 높은 확률의 클래스를 출력합니다.
     """
     # 업스케일링
-    sr_image = upscale_image(lr_image_path)
+    
+    sr_image = upscale_image_with_realesrgan(lr_image_path)
     
     # 전처리
     transform = transforms.Compose([
